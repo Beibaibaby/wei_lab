@@ -13,4 +13,7 @@ using Pkg
 #Pkg.add("FilePathsBase")
 #Pkg.add("FileIO")
 #Pkg.add("DSP")
-Pkg.add("Optim")
+#Pkg.add("Optim")
+#Pkg.add("DifferentialEquations")
+#Pkg.add("CSV")
+#Pkg.add("XLSX")
