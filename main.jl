@@ -2,44 +2,84 @@ using Plots
 using Measures
 using Optim
 
-function simulate_LIF_neuron(A, d_1, d_2, f, tau_d_1,tau_d_2, tau_f, dt, T, S_input)
-    τ_m = 10.0       
-    V_thresh = -50.0  
-    V_reset = -75.0   
-    V_rest = -75.0    
-    R_m = 10.0        
+"""
+Simulate the dynamics of a Leaky Integrate-and-Fire (LIF) neuron with synaptic depression, facilitation, and dual exponential synaptic input model.
 
-    time = 0:dt:T      
-     
-    V = V_rest                
-    Vs = Float64[]           
-    spike_times = []         
-    D_1 = 1.0 
-    D_2 = 1.0
+# Arguments
+- `A`: Amplitude of synaptic input.
+- `d_1`, `d_2`: Depression factors.
+- `f`: Facilitation increment.
+- `tau_d_1`, `tau_d_2`: Time constants for recovery of depression.
+- `tau_f`: Time constant for recovery of facilitation.
+- `dt`: Time step for the simulation.
+- `T`: Total simulation time.
+- `S_input`: Binary array representing the presence of spikes over time.
+- `taurise`, `taudecay`: Time constants for the rise and decay of the synaptic input.
 
-    F = 1.0                  
-    Hs = Float64[] 
+# Returns
+Tuple of time array, membrane potentials, spike times, H values, D values, and F values.
+"""
+taurise = 1.0
+taudecay = 3.0
 
-    Ds = Float64[]
-    Fs = Float64[] 
 
-    prev_V = V 
-    spike_count = 0  
+function simulate_LIF_neuron(A, d_1, d_2, f, tau_d_1, tau_d_2, tau_f, dt, T, S_input, taurise, taudecay)
+    # Neuron parameters
+    τ_m = 10.0        # Membrane time constant
+    V_thresh = -50.0  # Voltage threshold for spike
+    V_reset = -75.0   # Reset voltage post-spike
+    V_rest = -75.0    # Resting membrane potential
+    R_m = 10.0        # Membrane resistance
+
+    # Time vector
+    time = 0:dt:T
+
+    # Initialize variables
+    V = V_rest                # Membrane potential
+    Vs = Float64[]            # Array to store membrane potential over time
+    spike_times = []          # Spike times
+    D_1 = 1.0                 # Depression factor 1
+    D_2 = 1.0                 # Depression factor 2
+    F = 1.0                   # Facilitation factor
+    Hs = Float64[]            # Array to store H values
+    Ds = Float64[]            # Array to store D values
+    Fs = Float64[]            # Array to store F values
+    prev_V = V                # Previous voltage
+    spike_count = 0           # Spike counter
+
+    # Synaptic input variables
+    xrise = zeros(length(time))
+    xdecay = zeros(length(time))
+
+    is_rising = false  # Flag to track whether synInput is rising
+    prev_synInput = 0.0  # Variable to store previous synaptic input
 
     for (idx, t) in enumerate(time)
-        # Store the D and F at each timestep
-        push!(Ds, D_1*D_2)
-        push!(Fs, F)
+        # Update synaptic input variables based on input spikes
+        if S_input[idx] == 1
+            xrise[idx] += 1
+            xdecay[idx] += 1
+        end
 
+        # Calculate the synaptic input using the dual exponential model
+        if idx > 1
+            xrise[idx] += -dt * xrise[idx - 1] / taurise
+            xdecay[idx] += -dt * xdecay[idx - 1] / taudecay
+        end
+
+
+        synInput = (xdecay[idx] - xrise[idx]) / (taudecay - taurise)
+
+        # Compute membrane potential
         W = A * D_1 * D_2 * F
-        dV = (-(V - V_rest) + R_m * W * S_input[idx]) / τ_m
+        dV = (-(V - V_rest) + R_m * W * synInput) / τ_m
         V += dV * dt
-        
+
+        # Update depression and facilitation factors
         if S_input[idx] == 1
             spike_count += 1
             if spike_count == 1 || spike_count == 2
-                # Record the change in potential due to the input spike
-                push!(Hs, V - prev_V)
+                push!(Hs, V - prev_V) # Change in potential due to the input spike
             end
             D_1 *= d_1
             D_2 *= d_2
@@ -49,20 +89,22 @@ function simulate_LIF_neuron(A, d_1, d_2, f, tau_d_1,tau_d_2, tau_f, dt, T, S_in
         dD_1 = (1 - D_1) / tau_d_1
         D_1 += dD_1 * dt
 
-        #update D_2
         dD_2 = (1 - D_2) / tau_d_2
         D_2 += dD_2 * dt
 
-    
         dF = (1 - F) / tau_f
         F += dF * dt
-        
+
+        # Store computed values
         prev_V = V
         push!(Vs, V)
+        push!(Ds, D_1 * D_2)
+        push!(Fs, F)
     end
     
-    return time, Vs, spike_times, Hs, Ds, Fs  # Added Ds and Fs to the return values
+    return time, Vs, spike_times, Hs, Ds, Fs, xrise, xdecay
 end
+
 
 
 
@@ -179,7 +221,7 @@ function cost_function(params)
 
     for interval in observed_intervals
         local S_input = generate_two_spike_train(T, dt, first_spike_time, interval)
-        time, Vs, spike_times, Hs, Ds, Fs = simulate_LIF_neuron(A, d_1, d_2, f, tau_d_1,tau_d_2, tau_f, dt, T, S_input)
+        time, Vs, spike_times, Hs, Ds, Fs,xrise, xdecay = simulate_LIF_neuron(A, d_1, d_2, f, tau_d_1,tau_d_2, tau_f, dt, T, S_input,taurise, taudecay)
         ppr = Hs[2] / Hs[1]  # Compute PPR
         push!(simulated_pprs, ppr)
     end
@@ -222,7 +264,7 @@ function simulate_pprs(A, d_1,d_2, f, tau_d_1,tau_d_2, tau_f,intervals)
     simulated_pprs = Float64[]
     for interval in intervals
         S_input = generate_two_spike_train(T, dt, first_spike_time, interval)
-        time, Vs, spike_times, Hs, Ds, Fs = simulate_LIF_neuron(A, d_1, d_2, f, tau_d_1,tau_d_2, tau_f, dt, T, S_input)
+        time, Vs, spike_times, Hs, Ds, Fs,xrise, xdecay = simulate_LIF_neuron(A, d_1, d_2, f, tau_d_1,tau_d_2, tau_f, dt, T, S_input,taurise, taudecay)
         ppr = Hs[2] / Hs[1]
         push!(simulated_pprs, ppr)
     end
