@@ -54,9 +54,6 @@ function simulate_LIF_neuron(A, d_1, d_2, f, tau_d_1, tau_d_2, tau_f, dt, T, S_i
     for (idx, t) in enumerate(time)
         # Update synaptic input variables based on input spikes
         if S_input[idx] == 1
-            println("Beep! Input spike")
-            println(t)
-            println(idx)
             xrise[idx] += 1
             xdecay[idx] += 1
         end
@@ -82,13 +79,7 @@ function simulate_LIF_neuron(A, d_1, d_2, f, tau_d_1, tau_d_2, tau_f, dt, T, S_i
             F += f  
         end
         
-        if idx ==500 || idx == 501 || idx == 502 || idx == 503 || idx == 504 || idx == 499
-           
-            println(t)
-            println(idx)
-            println(D_1)
-            println(D_2)
-        end
+
 
 
         # Check for rising edge of synInput
@@ -98,7 +89,6 @@ function simulate_LIF_neuron(A, d_1, d_2, f, tau_d_1, tau_d_2, tau_f, dt, T, S_i
             #println(idx)
         elseif is_rising && synInput <= prev_synInput && synInput>0
             # synInput starts to drop, indicating a peak
-            println(idx)
 
             spike_count += 1
             #if spike_count == 1 || spike_count == 2
@@ -131,6 +121,7 @@ function simulate_LIF_neuron(A, d_1, d_2, f, tau_d_1, tau_d_2, tau_f, dt, T, S_i
     
     return time, Vs, spike_times, Hs, Ds, Fs, xrise, xdecay
 end
+
 
 
 function generate_spike_train(T, dt, initial_spike_time, tf)
@@ -180,59 +171,108 @@ function generate_two_spike_train(T, dt, initial_spike_time, interval)
     return S_input
 end
 
-# Example usage
-A = 20.0        # fixed parameter A
-d_1 = 0.25       # depression fraction upon a spike
-d_2 = 0.25
-f = 0.00        # facilitation increment upon a spike
-tau_d_1 = 120    # time constant for D to recover to 1 (ms)
-tau_d_2 = 120
-tau_f = 96.0     # time constant for F to recover to 1 (ms)
+
+T = 2000.0       # total time to simulate (ms)
 dt = 0.1       # time step (ms)
-T = 1000.0       # total time to simulate (ms)
+first_spike_time = 50.0  # ms
 taurise=0.95
 taudecay=1.0
 
-# Generate a spike train with 5 spikes
-first_spike_time = 50.0  # ms
-temporal_frequency = 10.0  # Hz (adjust as needed for 5 spikes within T)
-S_input = generate_spike_train(T, dt, first_spike_time, temporal_frequency)
+# Observed data
+observed_intervals = [50, 100, 200, 400, 800, 1600]
+observed_pprs = [0.717, 0.728, 0.800, 0.835,  0.899, 1.010]
 
-# Run the simulationoptimized_A, optimized_d_1,optimized_d_2, optimized_f, optimized_tau_d_1,optimized_tau_d_2, optimized_tau_f, observed_intervals
 
-#simulate_LIF_neuron(A, d_1, d_2, f, tau_d_1, tau_d_2, tau_f, dt, T, S_input, taurise, taudecay)
+# Updated cost function to accept a vector of all parameters
+function cost_function(params)
+    A, d_1,d_2, f, tau_d_1,tau_d_2, tau_f = params  # Unpack all parameters
 
-time, Vs, spike_times, Hs, Ds, Fs, xrise, xdecay = simulate_LIF_neuron(A, d_1,d_2, f, tau_d_1, tau_d_2, tau_f, dt, T, S_input, taurise, taudecay)
+    simulated_pprs = Float64[]
 
-# Calculate synaptic input over time
-synInputs = [(xdecay - xrise) / (taudecay - taurise) for (xrise, xdecay) in zip(xrise, xdecay)]
+    for interval in observed_intervals
+        local S_input = generate_two_spike_train(T, dt, first_spike_time, interval)
+        time, Vs, spike_times, Hs, Ds, Fs,xrise, xdecay = simulate_LIF_neuron(A, d_1, d_2, f, tau_d_1,tau_d_2, tau_f, dt, T, S_input,taurise, taudecay)
+        ppr = Hs[2] / Hs[1]  # Compute PPR
+        push!(simulated_pprs, ppr)
+    end
 
-# Plot membrane potential and synaptic input
-# Plot membrane potential
-p1 = plot(time, Vs, label="Membrane Potential (V)", color=:blue, xlabel="Time (ms)", ylabel="Membrane Potential (mV)", left_margin=20mm)
-
-# Plot synaptic input
-p2 = plot(time, synInputs, label="Synaptic Input", color=:red, xlabel="Time (ms)", ylabel="Synaptic Input", left_margin=20mm)
-
-# Plot H values
-p3 = plot(1:length(Hs), Hs, label="H Values", color=:black, xlabel="Spike Number", ylabel="H Value", left_margin=20mm, legend=:topright)
-
-# Plot H values
-pd = plot(time, Ds, label="Ds", color=:green, xlabel="Time (ms)", ylabel="Depression Factor", left_margin=20mm, legend=:topright)
-
-# Combine all plots into a single layout
-combined_plot = plot(p1, p2, pd, p3, layout=(4,1), legend=:topright)
-
-savefig(combined_plot, "Neuron_Simulation.png")
+    # Calculate the sum of squared differences (mean squared error)
+    return sum((simulated_pprs - observed_pprs).^2) / length(observed_pprs)
+end
 
 
 
-p4 = plot(time[450:600], synInputs[450:600], label="Synaptic Input", color=:red, xlabel="Time (ms)", ylabel="Synaptic Input", left_margin=20mm)
+# Set initial guesses for all parameters
+initial_params = [20.0, 0.25,0.25, 0.000000001, 103.0,103.0, 96.0]  # A, d_1, d_2 f, tau_d, tau_f
 
-p5 = plot(time[450:600], xdecay[450:600], label="xdecay", color=:red, xlabel="Time (ms)", ylabel="xdecay", left_margin=20mm)
+# Define lower and upper bounds for each parameter
+# Assuming all parameters are positive and have an upper limit for the example
+lower_bounds = [0.0, 0.0, 0.0, 0.0, 0.0,0.0, 0.0]
+upper_bounds = [100.0, 1.0, 1.0,1.0, 500.0,500.0, 500.0]
 
-p6 = plot(time[450:600], xrise[450:600], label="xrise", color=:red, xlabel="Time (ms)", ylabel="xrise", left_margin=20mm)
+# Define the box constraints
+box = Fminbox(BFGS())
 
-plot_input = plot(p4, p5, p6, layout=(3,1), legend=:topright)
+# Run the optimization with constraints
+result = optimize(cost_function, lower_bounds, upper_bounds, initial_params, box, Optim.Options(g_tol = 1e-6))
 
-savefig(plot_input, "input_zoomed.png")
+# Extract optimized values
+optimized_params = Optim.minimizer(result)
+#rewriting the optimized parameters
+optimized_A, optimized_d_1,optimized_d_2, optimized_f, optimized_tau_d_1,optimized_tau_d_2, optimized_tau_f = optimized_params
+# Print the optimized values
+println("Optimized A: $optimized_A, d_1: $optimized_d_1,d_2: $optimized_d_2, f: $optimized_f, tau_d_1: $optimized_tau_d_1,tau_d_2: $optimized_tau_d_2, tau_f: $optimized_tau_f")
+
+# Simulate PPRs using optimized parameters but change the agrumants to the function
+
+function simulate_pprs(A, d_1,d_2, f, tau_d_1,tau_d_2, tau_f,intervals)
+    simulated_pprs = Float64[]
+    for interval in intervals
+        S_input = generate_two_spike_train(T, dt, first_spike_time, interval)
+        time, Vs, spike_times, Hs, Ds, Fs,xrise, xdecay = simulate_LIF_neuron(A, d_1, d_2, f, tau_d_1,tau_d_2, tau_f, dt, T, S_input,taurise, taudecay)
+        print(Hs[2])
+        print(Hs[1])
+        ppr = Hs[2] / Hs[1]
+        
+        push!(simulated_pprs, ppr)
+    end
+    return simulated_pprs
+end
+
+simulated_pprs = simulate_pprs(optimized_A, optimized_d_1,optimized_d_2, optimized_f, optimized_tau_d_1,optimized_tau_d_2, optimized_tau_f, observed_intervals)
+
+# Sort the observed data
+sorted_observed_indices = sortperm(observed_intervals)
+sorted_observed_intervals = observed_intervals[sorted_observed_indices]
+sorted_observed_pprs = observed_pprs[sorted_observed_indices]
+
+# Sort the simulated data
+sorted_simulated_indices = sortperm(observed_intervals)
+sorted_simulated_intervals = observed_intervals[sorted_simulated_indices]
+sorted_simulated_pprs = simulated_pprs[sorted_simulated_indices]
+
+# Plotting
+
+# Prepare the title with optimized parameters
+
+title_str = "A= $(round(optimized_A, digits=2)), d_1= $(round(optimized_d_1, digits=2)), d_2= $(round(optimized_d_2, digits=2)), f= $(round(optimized_f, digits=2)), tau_d_1= $(round(optimized_tau_d_1, digits=2)), tau_d_2= $(round(optimized_tau_d_2, digits=2)), tau_f= $(round(optimized_tau_f, digits=2))"
+
+# Plotting with the optimized parameters in the title
+# change the frontsize of the title to become smaller (title=title_str)
+p = plot(title=title_str, legend=:bottomright, xlabel="Interval (ms)", ylabel="Paired Pulse Ratio",
+         legendfontsize=8, grid=false, dpi=400, left_margin=15mm, linewidth=10, titlefontsize=7)
+
+# Plot observed data as a curve with dots
+plot!(p, sorted_observed_intervals, sorted_observed_pprs, label="Observed Data", color=:blue, line=:solid)
+scatter!(sorted_observed_intervals, sorted_observed_pprs, color=:blue, markersize=4, label=false)
+
+# Plot simulated data as a curve with dots
+plot!(p, sorted_simulated_intervals, sorted_simulated_pprs, label="Simulated Data", color=:red, line=:solid)
+scatter!(sorted_simulated_intervals, sorted_simulated_pprs, color=:red, markersize=4, label=false)
+
+# Save and display the plot
+savefig(p, "PPR_Comparison_Plot.png")
+
+
+
+

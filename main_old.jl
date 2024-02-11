@@ -223,10 +223,9 @@ end
 observed_intervals = [50, 100, 200, 400, 800, 1600]
 observed_pprs = [0.717, 0.728, 0.800, 0.835,  0.899, 1.010]
 
-
 # Updated cost function to accept a vector of all parameters
 function cost_function(params)
-    A, d_1,d_2, f, tau_d_1,tau_2, tau_f = params  # Unpack all parameters
+    A, d_1,d_2, f, tau_d_1,tau_d_2, tau_f = params  # Unpack all parameters
 
     simulated_pprs = Float64[]
 
