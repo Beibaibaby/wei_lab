@@ -37,10 +37,10 @@ def save_abf_to_numpy(file_path, output_dir):
         for sweep in abf.sweepList:
             abf.setSweep(sweep, channel=channel)
             data = abf.sweepY  # This gets the sweep data
-
+        
             # Construct output file path
             output_file = os.path.join(output_dir, f"{os.path.basename(file_path)}_ch{channel}_sweep{sweep}.npy")
-
+          
             # Save the data to a NumPy file
             np.save(output_file, data)
             print(f"Channel {channel} Sweep {sweep} data saved to {output_file}")
@@ -60,3 +60,7 @@ file_paths = ["/gpfs/data/doiron-lab/draco/wei_lab/data/ko/18515004.abf", "/gpfs
 for path in file_paths:
     plot_and_save_abf(path, output_directory_plots)
     save_abf_to_numpy(path, output_directory_numpy)
+
+
+
+

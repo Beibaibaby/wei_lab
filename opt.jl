@@ -203,7 +203,7 @@ end
 
 
 # Set initial guesses for all parameters
-initial_params = [20.0, 0.25,0.25, 0.000000001, 103.0,103.0, 96.0]  # A, d_1, d_2 f, tau_d, tau_f
+initial_params = [54.39, 0.99,0.45, 0.99, 498.94,473.19, 242.494]  # A, d_1, d_2 f, tau_d, tau_f
 
 # Define lower and upper bounds for each parameter
 # Assuming all parameters are positive and have an upper limit for the example

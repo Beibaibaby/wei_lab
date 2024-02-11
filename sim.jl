@@ -1,3 +1,6 @@
+using NPZ
+using Plots
+using Measures
 using Plots
 using Measures
 using Optim
@@ -133,106 +136,76 @@ function simulate_LIF_neuron(A, d_1, d_2, f, tau_d_1, tau_d_2, tau_f, dt, T, S_i
 end
 
 
-function generate_spike_train(T, dt, initial_spike_time, tf)
-    # T: total simulation time
-    # dt: time step
-    # initial_spike_time: time for the first spike
-    # tf: temporal frequency, indicating how often a spike appears in the train
-    
-    # Calculate the number of time steps
-    num_steps = convert(Int, T/dt) + 1
-    
-    # Initialize the spike train with all zeros
-    S_input = zeros(Int, num_steps)
-    
-    # Set the initial spike
-    S_input[convert(Int, initial_spike_time/dt)] = 1
-    
-    # Calculate the time interval between spikes based on the temporal frequency
-    spike_interval = round(Int, 1000/tf)
-    
-    # Generate following spikes at evenly spaced intervals
-    for i in 2:5  # since the first spike is already set, we generate the next 4 spikes
-        next_spike_time = initial_spike_time + (i-1)*spike_interval
-        if next_spike_time <= T  # only set spike if it is within the total time T
-            S_input[convert(Int, next_spike_time/dt)] = 1
+# Define the file paths
+file_paths = [
+    "./spikes/18515004.abf_ch0_sweep0.npy_spikes.npy",
+    "./spikes/18515005.abf_ch0_sweep0.npy_spikes.npy",
+    "./spikes/18515008.abf_ch0_sweep0.npy_spikes.npy",
+    "./spikes/18515010.abf_ch0_sweep0.npy_spikes.npy"
+]
+
+# Simulation parameters (these are examples, adjust as needed)
+A = 54.39
+d_1 = 1.0
+d_2 = 0.45
+f = 1.0
+tau_d_1 = 498.94
+tau_d_2 = 473.2
+tau_f = 242.49
+dt = 0.1
+T = 5000.0
+taurise = 0.95
+taudecay = 1.0
+
+# Load spike data
+function load_spike_data(file_path)
+    spike_data = NPZ.npzread(file_path)
+    return spike_data
+end
+
+# Prepare S_input for simulation
+function prepare_S_input(spike_data, T, dt)
+    time_steps = Int(T / dt) + 1
+    S_input = zeros(Int, time_steps)
+    for spike_time in findall(x -> x == 1, spike_data)
+        if spike_time <= time_steps
+            S_input[spike_time] = 1
         end
     end
-    
     return S_input
 end
 
+# Function to run simulation and save plot for a given file path
+# Corrected function to run simulation and save plot for a given file path
+function simulate_and_plot(file_path)
+    # Load and prepare spike input
+    spike_data = load_spike_data(file_path)
+    S_input = prepare_S_input(spike_data, T, dt)
+    #println(S_input)
+    # Run simulation
+    time, Vs, spike_times, Hs, Ds, Fs, xrise, xdecay = simulate_LIF_neuron(A, d_1, d_2, f, tau_d_1, tau_d_2, tau_f, dt, T, S_input, taurise, taudecay)
+    # Calculate synaptic inputs from xrise and xdecay values
+    synInputs = [(xdecay - xrise) / (taudecay - taurise) for (xrise, xdecay) in zip(xrise, xdecay)]
 
-function generate_two_spike_train(T, dt, initial_spike_time, interval)
-    # Initialize the spike train with all zeros
-    num_steps = convert(Int, T/dt) + 1
-    S_input = zeros(Int, num_steps)
-    
-    # Set the first spike
-    S_input[convert(Int, initial_spike_time/dt)] = 1
-    
-    # Set the second spike based on the interval
-    second_spike_time = initial_spike_time + interval
-    if second_spike_time <= T
-        S_input[convert(Int, second_spike_time/dt)] = 1
+    # Calculate Current using the synaptic inputs, depression (D), and facilitation (F) factors
+    Current = 54.39 .* Ds .* Fs .* synInputs
+
+# Plotting the Current over time
+  p = plot(time, Current, label="Current", xlabel="Time (ms)", ylabel="Current (pA)", legend=:topright,size=(3000,500),left_margin=20mm,bottom_margin=15mm)
+
+    # Save plot to file
+    output_dir = "./spikes"
+    if !isdir(output_dir)
+        mkdir(output_dir)
     end
-    
-    return S_input
+    base_name = splitext(basename(file_path))[1]  # Extract base name without extension
+    save_path = joinpath(output_dir, base_name * "_simulation_plot.png")
+    savefig(p, save_path)  # Make sure to use the plot object 'p' here
+    println("Plot saved to $save_path")
 end
 
-# Example usage
-A = 20.0        # fixed parameter A
-d_1 = 0.25       # depression fraction upon a spike
-d_2 = 0.25
-f = 0.00        # facilitation increment upon a spike
-tau_d_1 = 120    # time constant for D to recover to 1 (ms)
-tau_d_2 = 120
-tau_f = 96.0     # time constant for F to recover to 1 (ms)
-dt = 0.1       # time step (ms)
-T = 1000.0       # total time to simulate (ms)
-taurise=0.95
-taudecay=1.0
 
-# Generate a spike train with 5 spikes
-first_spike_time = 50.0  # ms
-temporal_frequency = 10.0  # Hz (adjust as needed for 5 spikes within T)
-S_input = generate_spike_train(T, dt, first_spike_time, temporal_frequency)
-
-# Run the simulationoptimized_A, optimized_d_1,optimized_d_2, optimized_f, optimized_tau_d_1,optimized_tau_d_2, optimized_tau_f, observed_intervals
-
-#simulate_LIF_neuron(A, d_1, d_2, f, tau_d_1, tau_d_2, tau_f, dt, T, S_input, taurise, taudecay)
-
-time, Vs, spike_times, Hs, Ds, Fs, xrise, xdecay = simulate_LIF_neuron(A, d_1,d_2, f, tau_d_1, tau_d_2, tau_f, dt, T, S_input, taurise, taudecay)
-
-# Calculate synaptic input over time
-synInputs = [(xdecay - xrise) / (taudecay - taurise) for (xrise, xdecay) in zip(xrise, xdecay)]
-
-# Plot membrane potential and synaptic input
-# Plot membrane potential
-p1 = plot(time, Vs, label="Membrane Potential (V)", color=:blue, xlabel="Time (ms)", ylabel="Membrane Potential (mV)", left_margin=20mm)
-
-# Plot synaptic input
-p2 = plot(time, synInputs, label="Synaptic Input", color=:red, xlabel="Time (ms)", ylabel="Synaptic Input", left_margin=20mm)
-
-# Plot H values
-p3 = plot(1:length(Hs), Hs, label="H Values", color=:black, xlabel="Spike Number", ylabel="H Value", left_margin=20mm, legend=:topright)
-
-# Plot H values
-pd = plot(time, Ds, label="Ds", color=:green, xlabel="Time (ms)", ylabel="Depression Factor", left_margin=20mm, legend=:topright)
-
-# Combine all plots into a single layout
-combined_plot = plot(p1, p2, pd, p3, layout=@layout([a{0.25h}; b{0.25h}; c{0.25h}; d{0.25h}]), legend=:topright, size=(1000, 1000))
-
-savefig(combined_plot, "Neuron_Simulation.png")
-
-
-
-p4 = plot(time[450:600], synInputs[450:600], label="Synaptic Input", color=:red, xlabel="Time (ms)", ylabel="Synaptic Input", left_margin=20mm)
-
-p5 = plot(time[450:600], xdecay[450:600], label="xdecay", color=:red, xlabel="Time (ms)", ylabel="xdecay", left_margin=20mm)
-
-p6 = plot(time[450:600], xrise[450:600], label="xrise", color=:red, xlabel="Time (ms)", ylabel="xrise", left_margin=20mm)
-
-plot_input = plot(p4, p5, p6, layout=(3,1), legend=:topright)
-
-savefig(plot_input, "input_zoomed.png")
+# Iterate over file paths, simulating and plotting for each
+for file_path in file_paths
+    simulate_and_plot(file_path)
+end
