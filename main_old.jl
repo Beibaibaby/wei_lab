@@ -19,8 +19,8 @@ Simulate the dynamics of a Leaky Integrate-and-Fire (LIF) neuron with synaptic d
 # Returns
 Tuple of time array, membrane potentials, spike times, H values, D values, and F values.
 """
-taurise = 1.0
-taudecay = 3.0
+taurise = 1
+taudecay = 3
 
 
 function simulate_LIF_neuron(A, d_1, d_2, f, tau_d_1, tau_d_2, tau_f, dt, T, S_input, taurise, taudecay)
@@ -77,14 +77,25 @@ function simulate_LIF_neuron(A, d_1, d_2, f, tau_d_1, tau_d_2, tau_f, dt, T, S_i
 
         # Update depression and facilitation factors
         if S_input[idx] == 1
-            spike_count += 1
-            if spike_count == 1 || spike_count == 2
-                push!(Hs, V - prev_V) # Change in potential due to the input spike
-            end
             D_1 *= d_1
             D_2 *= d_2
             F += f  
         end
+
+        # Check for rising edge of synInput
+        if synInput > prev_synInput
+            is_rising = true
+        elseif is_rising && synInput < prev_synInput
+            # synInput starts to drop, indicating a peak
+            spike_count += 1
+            if spike_count == 1 || spike_count == 2
+                push!(Hs, V - V_rest) # Change in potential due to the input spike
+            end
+            is_rising = false
+        end
+
+        prev_synInput = synInput
+
 
         dD_1 = (1 - D_1) / tau_d_1
         D_1 += dD_1 * dt
@@ -166,7 +177,7 @@ f = 0.00        # facilitation increment upon a spike
 tau_d_1 = 103     # time constant for D to recover to 1 (ms)
 tau_d_2 = 103
 tau_f = 96.0     # time constant for F to recover to 1 (ms)
-dt = 1.0        # time step (ms)
+dt = 0.1       # time step (ms)
 T = 2000.0       # total time to simulate (ms)
 
 # Generate spike train
@@ -265,7 +276,10 @@ function simulate_pprs(A, d_1,d_2, f, tau_d_1,tau_d_2, tau_f,intervals)
     for interval in intervals
         S_input = generate_two_spike_train(T, dt, first_spike_time, interval)
         time, Vs, spike_times, Hs, Ds, Fs,xrise, xdecay = simulate_LIF_neuron(A, d_1, d_2, f, tau_d_1,tau_d_2, tau_f, dt, T, S_input,taurise, taudecay)
+        print(Hs[2])
+        print(Hs[1])
         ppr = Hs[2] / Hs[1]
+        
         push!(simulated_pprs, ppr)
     end
     return simulated_pprs
@@ -305,3 +319,36 @@ scatter!(sorted_simulated_intervals, sorted_simulated_pprs, color=:red, markersi
 # Save and display the plot
 savefig(p, "PPR_Comparison_Plot.png")
 #display(p)
+
+
+
+
+
+# Generate a spike train with 5 spikes
+first_spike_time = 50.0  # ms
+temporal_frequency = 10.0  # Hz (adjust as needed for 5 spikes within T)
+S_input = generate_spike_train(T, dt, first_spike_time, temporal_frequency)
+
+# Run the simulationoptimized_A, optimized_d_1,optimized_d_2, optimized_f, optimized_tau_d_1,optimized_tau_d_2, optimized_tau_f, observed_intervals
+
+#simulate_LIF_neuron(A, d_1, d_2, f, tau_d_1, tau_d_2, tau_f, dt, T, S_input, taurise, taudecay)
+
+time, Vs, spike_times, Hs, Ds, Fs, xrise, xdecay = simulate_LIF_neuron(optimized_A, optimized_d_1,optimized_d_2, optimized_f, optimized_tau_d_1,optimized_tau_d_2, optimized_tau_f, dt, T, S_input, taurise, taudecay)
+
+# Calculate synaptic input over time
+synInputs = [(xdecay - xrise) / (taudecay - taurise) for (xrise, xdecay) in zip(xrise, xdecay)]
+
+# Plot membrane potential and synaptic input
+# Plot membrane potential
+p1 = plot(time, Vs, label="Membrane Potential (V)", color=:blue, xlabel="Time (ms)", ylabel="Membrane Potential (mV)", left_margin=20mm)
+
+# Plot synaptic input
+p2 = plot(time, synInputs, label="Synaptic Input", color=:red, xlabel="Time (ms)", ylabel="Synaptic Input", left_margin=20mm)
+
+# Plot H values
+p3 = plot(1:length(Hs), Hs, label="H Values", color=:green, xlabel="Spike Number", ylabel="H Value", left_margin=20mm, legend=:topright)
+
+# Combine all plots into a single layout
+combined_plot = plot(p1, p2, p3, layout=(3,1), legend=:topright)
+
+savefig(combined_plot, "Neuron_Simulation.png")
