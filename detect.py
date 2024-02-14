@@ -6,7 +6,7 @@ def load_data(file_path):
     """Load the time series data from a numpy file."""
     return np.load(file_path)
 
-def detect_spikes(data, threshold=-20, time_bin_ms=15, sampling_rate=10000):
+def detect_spikes(data, threshold=-20, time_bin_ms=30, sampling_rate=10000):
     """
     Detects spikes in the data where there is a drop greater than the threshold within a specified time bin.
     

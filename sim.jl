@@ -146,7 +146,7 @@ file_paths = [
 
 # Simulation parameters (these are examples, adjust as needed)
 A = 54.39
-d_1 = 1.0
+d_1 = 0.80
 d_2 = 0.45
 f = 1.0
 tau_d_1 = 498.94
@@ -154,8 +154,8 @@ tau_d_2 = 473.2
 tau_f = 242.49
 dt = 0.1
 T = 5000.0
-taurise = 0.95
-taudecay = 1.0
+taurise = 1.95
+taudecay = 3.2
 
 # Load spike data
 function load_spike_data(file_path)
@@ -194,7 +194,7 @@ function simulate_and_plot(file_path)
   p = plot(time, Current, label="Current", xlabel="Time (ms)", ylabel="Current (pA)", legend=:topright,size=(3000,500),left_margin=20mm,bottom_margin=15mm)
 
     # Save plot to file
-    output_dir = "./spikes"
+    output_dir = "./results"
     if !isdir(output_dir)
         mkdir(output_dir)
     end
@@ -202,6 +202,22 @@ function simulate_and_plot(file_path)
     save_path = joinpath(output_dir, base_name * "_simulation_plot.png")
     savefig(p, save_path)  # Make sure to use the plot object 'p' here
     println("Plot saved to $save_path")
+
+
+    # Save Current to file under ./results
+    results_dir = "./results"
+    if !isdir(results_dir)
+        mkdir(results_dir)
+    end
+    results_save_path = joinpath(results_dir, base_name * "_currents.csv")
+    # Assuming Current is a 1D array; adjust as necessary for your data structure
+    open(results_save_path, "w") do io
+        # Write header
+        write(io, "Time (ms),Current (pA)\n")
+        # Write data
+        [write(io, string(time[i]), ",", string(Current[i]), "\n") for i in 1:length(Current)]
+    end
+    println("Current data saved to $results_save_path")
 end
 
 

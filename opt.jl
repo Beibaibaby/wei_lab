@@ -175,8 +175,8 @@ end
 T = 2000.0       # total time to simulate (ms)
 dt = 0.1       # time step (ms)
 first_spike_time = 50.0  # ms
-taurise=0.95
-taudecay=1.0
+taurise=1.95
+taudecay=3.2
 
 # Observed data
 observed_intervals = [50, 100, 200, 400, 800, 1600]
