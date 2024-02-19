@@ -191,7 +191,7 @@ function simulate_and_plot(file_path)
     Current = 54.39 .* Ds .* Fs .* synInputs
 
 # Plotting the Current over time
-  p = plot(time, Current, label="Current", xlabel="Time (ms)", ylabel="Current (pA)", legend=:topright,size=(3000,500),left_margin=20mm,bottom_margin=15mm)
+  p = plot(time, Current, label="Current", xlabel="Time (ms)", ylabel="Current (pA)", legend=:topright,size=(2000,500),left_margin=20mm,bottom_margin=15mm)
 
     # Save plot to file
     output_dir = "./results"
