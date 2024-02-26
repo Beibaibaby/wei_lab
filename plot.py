@@ -29,7 +29,7 @@ for base_filename in base_filenames:
 
     # Load and plot the currents from the .csv files
     currents_df = pd.read_csv(f'./results/{base_filename}.abf_ch0_sweep0.npy_spikes_currents.csv')
-    axs[2].plot(currents_df['Time (ms)'] / 1000.0, currents_df['Current (pA)'], label=f'Simulated Currents')
+    axs[2].plot(currents_df['Time (ms)'] / 1000.0, currents_df['Current (pA)'], label=f'Simulated Currents',alpha=0.5)
     axs[2].set_title(f'Simulated Currents: {base_filename}')
     axs[2].set_xlabel('Time (s)')
     axs[2].legend()
@@ -66,7 +66,7 @@ for pair in overlap_pairs:
 
         # Load and plot currents from CSV files
         currents_df = pd.read_csv(f'./results/{base_filename}.abf_ch0_sweep0.npy_spikes_currents.csv')
-        axs[2].plot(currents_df['Time (ms)'] / 1000.0, currents_df['Current (pA)'], label=f'{labels[i]} Currents')
+        axs[2].plot(currents_df['Time (ms)'] / 1000.0, currents_df['Current (pA)'], label=f'{labels[i]} Currents',alpha=0.5)
 
     # Setting titles for each subplot
     axs[0].set_title('Channel 0 Data with Spikes')

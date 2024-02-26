@@ -57,9 +57,9 @@ function simulate_LIF_neuron(A, d_1, d_2, f, tau_d_1, tau_d_2, tau_f, dt, T, S_i
     for (idx, t) in enumerate(time)
         # Update synaptic input variables based on input spikes
         if S_input[idx] == 1
-            println("Beep! Input spike")
-            println(t)
-            println(idx)
+            #println("Beep! Input spike")
+            #println(t)
+            #println(idx)
             xrise[idx] += 1
             xdecay[idx] += 1
         end
@@ -85,13 +85,6 @@ function simulate_LIF_neuron(A, d_1, d_2, f, tau_d_1, tau_d_2, tau_f, dt, T, S_i
             F += f  
         end
         
-        if idx ==500 || idx == 501 || idx == 502 || idx == 503 || idx == 504 || idx == 499
-           
-            println(t)
-            println(idx)
-            println(D_1)
-            println(D_2)
-        end
 
 
         # Check for rising edge of synInput
@@ -181,7 +174,13 @@ function simulate_and_plot(file_path)
     # Load and prepare spike input
     spike_data = load_spike_data(file_path)
     S_input = prepare_S_input(spike_data, T, dt)
-    #println(S_input)
+    #print the index of non zero elements
+    println(findall(x -> x == 1, S_input))
+    #remove all the spike input before 500 ms by setting all 1 before 5000 to 0 
+    S_input[1:5000] .= 0
+
+    S_input[19490:19520] .= 0
+    
     # Run simulation
     time, Vs, spike_times, Hs, Ds, Fs, xrise, xdecay = simulate_LIF_neuron(A, d_1, d_2, f, tau_d_1, tau_d_2, tau_f, dt, T, S_input, taurise, taudecay)
     # Calculate synaptic inputs from xrise and xdecay values
@@ -190,8 +189,8 @@ function simulate_and_plot(file_path)
     # Calculate Current using the synaptic inputs, depression (D), and facilitation (F) factors
     Current = 54.39 .* Ds .* Fs .* synInputs
 
-# Plotting the Current over time
-  p = plot(time, Current, label="Current", xlabel="Time (ms)", ylabel="Current (pA)", legend=:topright,size=(2000,500),left_margin=20mm,bottom_margin=15mm)
+    # Plotting the Current over time
+    p = plot(time, Current, label="Current", xlabel="Time (ms)", ylabel="Current (pA)", legend=:topright,size=(2000,500),left_margin=20mm,bottom_margin=15mm)
 
     # Save plot to file
     output_dir = "./results"
