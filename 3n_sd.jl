@@ -1,6 +1,5 @@
 using Plots
 using Measures
-ENV["GKSwstype"] = "100"
 
 # Revised neuron simulation function for network context
 function simulate_LIF_neuron_network_modified(A, d_1, d_2, f, tau_d_1, tau_d_2, tau_f, dt, T, tauerise, tauedecay, tauirise, tauidecay, external_input, inhibitory_input)
@@ -99,7 +98,7 @@ function simulate_LIF_neuron_network_DSGC(A, d_1, d_2, f, tau_d_1, tau_d_2, tau_
         synInput_I = (xidecay[idx] - xirise[idx]) / (tauidecay - tauirise)
         
         # Combine excitatory and inhibitory inputs
-        synInput = A *1.0 * synInput_E - 50*A * D_1 * D_2 * F * synInput_I
+        synInput = A *1.0 * synInput_E - 12*A * D_1 * D_2 * F * synInput_I
         synInput = synInput/4
         
         # Compute membrane potential
@@ -132,86 +131,18 @@ function simulate_LIF_neuron_network_DSGC(A, d_1, d_2, f, tau_d_1, tau_d_2, tau_
     return time, Vs, spikes
 end
 
-function simulate_LIF_neuron_network_SAC2(A, d_1, d_2, f, tau_d_1, tau_d_2, tau_f, dt, T, tauerise, tauedecay, tauirise, tauidecay, external_input, inhibitory_input)
-    τ_m = 10.0        # Membrane time constant
-    V_thresh = -50.0  # Voltage threshold for spike
-    V_reset = -75.0   # Reset voltage post-spike
-    V_rest = -75.0    # Resting membrane potential
-    R_m = 10.0        # Membrane resistance
-
-    # Time vector
-    time = 0:dt:T
-    n = length(time)
-
-    # Initialize variables
-    V = V_rest                # Membrane potential
-    Vs = -75.0*ones(n)        # Array to store membrane potential over time
-    spikes = zeros(Int, n)    # Spike times as binary array
-    D_1, D_2, F = 1.0, 1.0, 1.0 # Synaptic variables for inhibitory input
-    xerise, xedecay = zeros(n), zeros(n)  # Excitatory synaptic variables
-    xirise, xidecay = zeros(n), zeros(n)  # Inhibitory synaptic variables
-
-    for idx in 2:n
-        # Update excitatory synaptic input variables
-        xerise[idx] = xerise[idx-1] -dt * xerise[idx-1] / tauerise + external_input[idx]
-        xedecay[idx] = xedecay[idx-1]-dt * xedecay[idx-1] / tauedecay + external_input[idx]
-
-        # Update inhibitory synaptic input variables
-        xirise[idx] = xirise[idx-1] -dt * xirise[idx-1] / tauirise + inhibitory_input[idx]
-        xidecay[idx] = xidecay[idx-1] -dt * xidecay[idx-1] / tauidecay + inhibitory_input[idx]
-
-        # Calculate separate synaptic inputs for excitatory and inhibitory
-        synInput_E = (xedecay[idx] - xerise[idx]) / (tauedecay - tauerise)
-        synInput_I = (xidecay[idx] - xirise[idx]) / (tauidecay - tauirise)
-        
-        # Combine excitatory and inhibitory inputs
-        synInput = A  * synInput_E - 5*A * D_1 * D_2 * F * synInput_I
-
-        # Compute membrane potential
-        dV = (-(V - V_rest) + R_m * synInput) / τ_m
-        V += dV * dt
-
-        if inhibitory_input[idx] == 1
-            D_1 *= d_1
-            D_2 *= d_2
-            F += f
-        end
-
-        if idx > 26000 
-            D_1 *= 0.5
-        end
-
-        # Spike occurred
-        if V >= V_thresh
-            V = V_reset
-            spikes[idx] = 1
-        end
-
-        # Update depression and facilitation factors for inhibitory inputs
-        D_1 += (1 - D_1) / tau_d_1 * dt
-        D_2 += (1 - D_2) / tau_d_2 * dt
-        F += (1 - F) / tau_f * dt
-
-        Vs[idx] = V
-    end
-    
-    return time, Vs, spikes
-end
-
-
-
 # Initialize parameters
-A, d_1, d_2, f = 7.0, 0.95, 0.99, 0.1
+A, d_1, d_2, f = 7.0, 0.6, 0.99, 0.1
 tau_d_1, tau_d_2, tau_f = 100.0, 300.0, 300.0
 
-tau_d_1_dsgc= 100.0
+tau_d_1_dsgc=80.0
 
 tauerise, tauedecay = 1.0, 5.0
 tauirise, tauidecay = 2.0, 10.0
-tauirise_dsgc, tauidecay_dsgc = 1.0, 5.0
+tauirise_dsgc, tauidecay_dsgc = 5.0, 10.0
 
 d_dsgc = 1.0
-d_dsgc_p = 0.25
+d_dsgc_p = 0.5
 # External (excitatory) spiking inputs for each neuron
 dt, T = 0.1, 4000.0
 p1 = 0.0250
@@ -225,13 +156,13 @@ period_3_end = period_1_end + 1.2t_s
 
 # External input generation with two periods
 external_input_1 = [rand() < (t <= period_1_end ? p1 : p2) for t in 0:dt:T]
-external_input_2 = [rand() < (t <= period_2_end ? p1 : p2*0.8) for t in 0:dt:T]
+external_input_2 = [rand() < (t <= period_2_end ? p1 : p2) for t in 0:dt:T]
 external_input_3 = [rand() < (t <= period_3_end ? p1 : p2) for t in 0:dt:T]
 external_input_3_dsgc = [rand() < (t <= period_3_end ? p1 : (p2*2.0)) for t in 0:dt:T]
 
 # Simulate the network
 time, Vs_1, spikes_1 = simulate_LIF_neuron_network_modified(A, d_1, 1.0, 0.0 , tau_d_1, tau_d_2, tau_f, dt, T, tauerise, tauedecay, tauirise, tauidecay, external_input_1, zeros(length(external_input_1)))
-_, Vs_2, spikes_2 = simulate_LIF_neuron_network_SAC2(A, d_1, 1.0, 0.0, tau_d_1, tau_d_2, tau_f, dt, T, tauerise, tauedecay, tauirise, tauidecay, external_input_2, spikes_1)
+_, Vs_2, spikes_2 = simulate_LIF_neuron_network_modified(A, d_1, 1.0, 0.0, tau_d_1, tau_d_2, tau_f, dt, T, tauerise, tauedecay, tauirise, tauidecay, external_input_2, spikes_1)
 _, Vs_3, spikes_3 = simulate_LIF_neuron_network_DSGC(A, d_dsgc, 1.0, 0.0, tau_d_1_dsgc, 30, tau_f, dt, T, tauerise, tauedecay, tauirise_dsgc, tauidecay_dsgc, external_input_3_dsgc, spikes_2)
 
 # Function to find spike times for plotting
@@ -271,7 +202,7 @@ vspan!(p3, [2500, 2600], color = :orange, alpha = 0.1, label = "")
 #####################Cut here for the next part#####################
 
 time, Vs_4, spikes_4 = simulate_LIF_neuron_network_modified(A, d_1, 1.0, 0.0, tau_d_1, tau_d_2, tau_f, dt, T, tauerise, tauedecay, tauirise, tauidecay, external_input_1, zeros(length(external_input_1)))
-_, Vs_5, spikes_5 = simulate_LIF_neuron_network_SAC2(A, d_1, 1.0, 0.0, tau_d_1, tau_d_2, tau_f, dt, T, tauerise, tauedecay, tauirise, tauidecay, external_input_2, zeros(length(external_input_1)))
+_, Vs_5, spikes_5 = simulate_LIF_neuron_network_modified(A, d_1, 1.0, 0.0, tau_d_1, tau_d_2, tau_f, dt, T, tauerise, tauedecay, tauirise, tauidecay, external_input_2, zeros(length(external_input_1)))
 _, Vs_6, spikes_6 = simulate_LIF_neuron_network_DSGC(A, d_dsgc, 1.0, 0.0, tau_d_1_dsgc, 30, tau_f, dt, T, tauerise, tauedecay, tauirise_dsgc, tauidecay_dsgc, external_input_3_dsgc, spikes_5)
 
 
@@ -357,7 +288,7 @@ vspan!(p6d, [2500, 2600], color = :orange, alpha = 0.1, label = "")
 
 
 
-combined_plot_3 = plot(p1, p4, p2, p5, p3, p6, p3d, p6d, layout = (4, 2), size = (1600, 800), legend = false, dpi = 400, plot_title = "SAC to SAC: Without Depression")
+combined_plot_3 = plot(p1, p4, p2, p5, p3, p6, p3d, p6d, layout = (4, 2), size = (1600, 800), legend = false, dpi = 400, plot_title = "SAC to SAC: With Depression")
 
 # Save the combined plot to a file
-savefig(combined_plot_3, "3_neuron_all.png")
+savefig(combined_plot_3, "3_neuron_ds.png")
